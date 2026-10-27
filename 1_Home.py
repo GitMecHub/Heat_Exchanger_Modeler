@@ -2218,5 +2218,3 @@ if st.session_state.extrude_button:
 else:
     col2.markdown("")
 
-    # https://aerohx-xbgevddyrwrida74b4hvnx.streamlit.app/
-
