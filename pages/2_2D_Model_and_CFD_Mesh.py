@@ -115,7 +115,44 @@ def criar_sketch_perfil(contour, forma_tubo='Aerofólio', spline_mode=False):
 
         return cq.Sketch().face(face).reset()
 
-    return cq.Sketch().polygon(contour).reset()
+    # Polígono (suavizado) com o bordo de fuga arredondado (só no modelo 2D de CFD): sem isso a camada-limite gera uma
+    # faixa de células muito finas atrás do bordo de fuga rombudo e células de canto onde os tubos cortados encostam
+    # nos planos de simetria (growth rate muito alto). Mesmo papel do bordo de fuga suave da spline validada
+    try:
+        return cq.Sketch().face(face_poligono_te_arredondado(contour)).reset()
+    except Exception:
+        return cq.Sketch().polygon(contour).reset()
+
+
+# Face do polígono com o bordo de fuga (x máximo) arredondado:
+#   bordo de fuga rombudo (dois pontos em x máximo): a reta entre eles vira um meio círculo
+#   bordo de fuga em ponta (um ponto em x máximo): arredondado com um arco de raio raio_te cordas
+def face_poligono_te_arredondado(contour, raio_te=0.003):
+    pts = tratar_contorno(contour, fechar=False, remover_loop=True)
+    x_coords, y_coords = zip(*pts)
+    corda_ = max(x_coords) - min(x_coords)
+    tol = 1e-6 * corda_
+    n = len(pts)
+    i_te = [i for i in range(n) if abs(pts[i][0] - max(x_coords)) < tol]
+
+    if len(i_te) == 2 and (i_te[1] - i_te[0]) % n in (1, n - 1):
+        # Reordena para que a reta do bordo de fuga seja a última (do último ponto de volta ao primeiro)
+        i_ini = i_te[1] if (i_te[1] - i_te[0]) % n == 1 else i_te[0]
+        pts = pts[i_ini:] + pts[:i_ini]
+        (x_a, y_a), (x_b, y_b) = pts[-1], pts[0]
+        meio = (max(x_a, x_b) + abs(y_a - y_b) / 2, (y_a + y_b) / 2)
+        wire = cq.Workplane("XY").polyline(pts).threePointArc(meio, pts[0]).wire().val()
+        face = cq.Face.makeFromWires(wire)
+    elif len(i_te) == 1:
+        face = cq.Face.makeFromWires(cq.Workplane("XY").polyline(pts).close().wire().val())
+        vertice = [v for v in face.Vertices() if abs(v.X - pts[i_te[0]][0]) < tol and abs(v.Y - pts[i_te[0]][1]) < tol]
+        face = face.fillet2D(raio_te * corda_, vertice)
+    else:
+        raise ValueError("trailing edge not found")
+
+    if not face.isValid():
+        raise ValueError("invalid face")
+    return face
 
 
 ################# MODELO 2D E MALHA (CFD) #################
@@ -224,8 +261,9 @@ def _boundary_layer_layout(cfg, y1, min_gap):
     n = int(math.floor(math.log(1.0 + t_max * (r - 1.0) / y1) / math.log(r)))
     n = max(3, min(n, cfg.bl_max_layers))
     if cfg.bl_ultima_camada_superficie:
-        # Última camada ~ tamanho na superfície (transição suave para os triângulos)
-        n = max(3, min(n, int(math.floor(math.log(cfg.size_airfoil * cfg.chord / y1) / math.log(r))) + 1))
+        # Última camada ~ metade do tamanho na superfície (transição suave para os triângulos: um quad de altura h/2
+        # tem praticamente a mesma área de um triângulo de lado h; com altura h a razão de áreas já passa de 2)
+        n = max(3, min(n, int(math.floor(math.log(0.5 * cfg.size_airfoil * cfg.chord / y1) / math.log(r))) + 1))
     return n, y1 * (r ** n - 1.0) / (r - 1.0)
 
 
@@ -493,7 +531,13 @@ def gerar_malha_cfd(cfg, step_file, contornos_m, file_base, openfoam=False, prog
                                 pontos_leque.append(ptag)
                 if pontos_leque:
                     f.setNumbers(fields["bl"], "FanPointsList", pontos_leque)
-                    gmsh.option.setNumber("Mesh.BoundaryLayerFanElements", cfg.bl_elementos_leque)
+                    # Número de elementos do leque: equilibra o growth rate na 1a camada (células do leque muito estreitas
+                    # ao lado das células da superfície, de tamanho size_te) e na última (células do leque muito largas).
+                    # Passo angular ~ size_te / sqrt(h1 * espessura): se ajusta à velocidade (h1 menor -> menos elementos)
+                    _, espessura_bl = _boundary_layer_layout(cfg, y1, min_gap)
+                    n_leque = int(np.clip(round(0.5 * math.pi * math.sqrt(y1 * espessura_bl) / (cfg.size_te * c)), 2,
+                                          cfg.bl_elementos_leque))
+                    gmsh.option.setNumber("Mesh.BoundaryLayerFanElements", n_leque)
             f.setAsBoundaryLayer(fields["bl"])
 
         gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
@@ -828,7 +872,8 @@ interferencia = setup_2d['interferencia']
 
 st.caption("Cross-section of the tube bank set up on the Home page (outer profiles only: wall thickness, "
            "connections, fittings and fins are not included). "
-           + ("Profile: smoothed polygon (smoothing on)." if (forma_tubo == 'Aerofólio' and not spline_mode) else
+           + ("Profile: smoothed polygon (smoothing on), with the trailing edge rounded for the CFD mesh."
+              if (forma_tubo == 'Aerofólio' and not spline_mode) else
               "Profile: spline through all the contour points (smoothing off)." if forma_tubo == 'Aerofólio' else
               "Profile: exact circle / ellipse.")
            + (" Staggered arrangement." if staggered else " Aligned arrangement."))
@@ -950,18 +995,18 @@ if gerar:
         wake_line_length=2.5, size_wake_line=(0.012 if aerofolio else 0.05) * fator,
         wake_line_dist_min=0.03 if aerofolio else 0.5 * h_c,
         wake_line_dist_max=0.25 if aerofolio else 0.5 * h_c + 0.25,
-        # Última camada da camada-limite ~ tamanho na superfície (senão a transição para os triângulos passa do growth
-        # rate 2). No aerofólio isso também reduz o leque de células em volta do bordo de fuga
+        # Última camada da camada-limite ~ metade do tamanho na superfície (senão a transição para os triângulos passa do
+        # growth rate 2). No aerofólio isso também reduz o leque de células em volta do bordo de fuga
         bl_ultima_camada_superficie=True,
         extrusion_depth=0.025, y_plus_target=y_plus, bl_ratio=1.2, bl_max_layers=14, bl_min_layers=6,
         bl_max_gap_fraction=0.25, mesh_smoothing_steps=5, min_sicn=0.30, min_gamma=0.30, min_rho=0.30,
         quality_hard_floor=0.10, max_bad_fraction=0.001, mesh_max_iterations=3, refine_shrink_factor=0.85,
         refine_grow_factor=1.30, U_inlet=U_inlet, nu_air=nu_air, boundary_layer=camada_limite,
         refino_te=(forma_tubo == 'Aerofólio'),
-        # Polígono (suavizado): bordo de fuga reto (rombudo) -> leque de células nos dois cantos do bordo de fuga
-        # (sem o leque, a camada-limite que sai da reta do bordo de fuga gera uma faixa de células muito finas ao lado
-        # de células grandes: growth rate ~60). A spline já tem o bordo de fuga suave
-        leque_te=(forma_tubo == 'Aerofólio' and not spline_mode), bl_elementos_leque=8,
+        # Polígono (suavizado): o bordo de fuga já é arredondado no modelo 2D (face_poligono_te_arredondado). Se o
+        # arredondamento falhar e o bordo de fuga ficar reto (rombudo), entra o leque de células nos dois cantos (sem o
+        # leque, a camada-limite que sai da reta do bordo de fuga gera células muito finas ao lado de células grandes)
+        leque_te=(forma_tubo == 'Aerofólio' and not spline_mode), bl_elementos_leque=12,  # máximo de elementos no leque
         # Célula simétrica: centro (y) da fileira do meio (colunas pares), em metros
         simetria_y0=(2 * (num_rows // 2) * pitch_v * scale_ / 1000.0) if simetria_cel else None,
     )
