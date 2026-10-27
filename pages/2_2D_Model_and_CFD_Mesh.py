@@ -481,6 +481,19 @@ def gerar_malha_cfd(cfg, step_file, contornos_m, file_base, openfoam=False, prog
                         pontos_fim_bl.append(ptag)
             if pontos_fim_bl:
                 f.setNumbers(fields["bl"], "PointsList", pontos_fim_bl)
+            # Leque nos cantos do bordo de fuga reto (pontos dos perfis em x máximo, fora dos planos de simetria)
+            if cfg.leque_te:
+                pontos_leque = []
+                for pts in grupos.values():
+                    x_te = pts[:, 0].max()
+                    for ctag in airfoil_curves:
+                        for _, ptag in gmsh.model.getBoundary([(1, ctag)], oriented=False):
+                            px, _, _ = gmsh.model.getValue(0, ptag, [])
+                            if abs(px - x_te) < 1e-3 * c and ptag not in pontos_leque and ptag not in pontos_fim_bl:
+                                pontos_leque.append(ptag)
+                if pontos_leque:
+                    f.setNumbers(fields["bl"], "FanPointsList", pontos_leque)
+                    gmsh.option.setNumber("Mesh.BoundaryLayerFanElements", cfg.bl_elementos_leque)
             f.setAsBoundaryLayer(fields["bl"])
 
         gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
@@ -937,14 +950,18 @@ if gerar:
         wake_line_length=2.5, size_wake_line=(0.012 if aerofolio else 0.05) * fator,
         wake_line_dist_min=0.03 if aerofolio else 0.5 * h_c,
         wake_line_dist_max=0.25 if aerofolio else 0.5 * h_c + 0.25,
-        # Circular / elíptico: última camada da camada-limite ~ tamanho na superfície (senão a transição para os
-        # triângulos passa do growth rate 2)
-        bl_ultima_camada_superficie=not aerofolio,
+        # Última camada da camada-limite ~ tamanho na superfície (senão a transição para os triângulos passa do growth
+        # rate 2). No aerofólio isso também reduz o leque de células em volta do bordo de fuga
+        bl_ultima_camada_superficie=True,
         extrusion_depth=0.025, y_plus_target=y_plus, bl_ratio=1.2, bl_max_layers=14, bl_min_layers=6,
         bl_max_gap_fraction=0.25, mesh_smoothing_steps=5, min_sicn=0.30, min_gamma=0.30, min_rho=0.30,
         quality_hard_floor=0.10, max_bad_fraction=0.001, mesh_max_iterations=3, refine_shrink_factor=0.85,
         refine_grow_factor=1.30, U_inlet=U_inlet, nu_air=nu_air, boundary_layer=camada_limite,
         refino_te=(forma_tubo == 'Aerofólio'),
+        # Polígono (suavizado): bordo de fuga reto (rombudo) -> leque de células nos dois cantos do bordo de fuga
+        # (sem o leque, a camada-limite que sai da reta do bordo de fuga gera uma faixa de células muito finas ao lado
+        # de células grandes: growth rate ~60). A spline já tem o bordo de fuga suave
+        leque_te=(forma_tubo == 'Aerofólio' and not spline_mode), bl_elementos_leque=8,
         # Célula simétrica: centro (y) da fileira do meio (colunas pares), em metros
         simetria_y0=(2 * (num_rows // 2) * pitch_v * scale_ / 1000.0) if simetria_cel else None,
     )
