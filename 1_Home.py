@@ -1163,7 +1163,7 @@ def criar_header_hx(
             .box(L_cab_b, H_cab_b, S_cab_b)
             #.edges("|Z").fillet(chord_ / 3)
             .edges("|Z").fillet(chord_/10)
-        ).translate((pitch_h_ * (num_cols - 1) / 2, y_centro_cab, -L_header / 2))
+        ).translate((pitch_h_ * (num_cols - 1) / 2, y_centro_cab, S_cab_b / 2))
 
         # Subtrai os perfis (furos) do cabeçote
         for profile in sketch_ext_list:
@@ -1185,7 +1185,7 @@ def criar_header_hx(
             .box(L_cab_b, H_cab_b, S_cab_b)
             #.edges("|Z").fillet(chord_ / 3)
             .edges("|Z").fillet(chord_/10)
-        ).translate((pitch_h_ * (num_cols - 1) / 2, y_centro_cab, -L_header / 2))
+        ).translate((pitch_h_ * (num_cols - 1) / 2, y_centro_cab, S_cab_b / 2))
 
 
     # Cria o corpo superior do cabeçote
@@ -1209,7 +1209,7 @@ def criar_header_hx(
     header_body2 = (
         cq.Workplane("XY")
         .box(L_cab_b, H_cab_b, L_header)
-    ).translate((pitch_h_ * (num_cols - 1) / 2, y_centro_cab, -L_header / 2))
+    ).translate((pitch_h_ * (num_cols - 1) / 2, y_centro_cab, L_header / 2))
 
     ## Aplica shell se necessário
     #header_body2 = header_body2.faces("-Z").shell(-espessura_offset * 2).edges("|Z").fillet(chord_ / 3) if offset_ else header_body2.edges("|Z").fillet(chord_ / 3)
