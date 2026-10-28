@@ -33,6 +33,15 @@ if 'image_ok' in st.session_state:
 
 st.header("Heat Exchanger Modeler v1.0.0", divider="gray", anchor=False)
 
+with st.container(border=True):
+st.markdown('''
+    The airfoil-tube heat exchanger behind this app was additively manufactured and tested in practice. Its thermal–hydraulic performance is published in:
+    
+    *Thermal–hydraulic performance of an additively manufactured finless heat exchanger employing airfoil-shaped tubes*  
+    J. I. M. Rufino, G. B. Ribeiro · Applied Thermal Engineering, vol. 309, 2026
+    ''')
+    st.link_button("Read the article", "https://doi.org/10.1016/j.applthermaleng.2026.133608")
+
 st.markdown('''
 ## About Heat Exchanger Modeler:
 
