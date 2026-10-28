@@ -492,13 +492,6 @@ def displayCAD_streamlit(file_path: str, title: str, opacity: float = 0.75):
         opacity=opacity
     )])
 
-    # fig.update_layout(
-    #     width=1200,
-    #     height=800,
-    #     scene=dict(aspectmode="data"),
-    #     title=title,
-    #     margin=dict(l=0, r=0, t=40, b=0)
-    # )
     fig = go.Figure(data=[go.Mesh3d(
         x=x, y=y, z=z,
         i=faces[:, 0], j=faces[:, 1], k=faces[:, 2],
@@ -507,6 +500,14 @@ def displayCAD_streamlit(file_path: str, title: str, opacity: float = 0.75):
         lighting=dict(ambient=0.45, diffuse=0.8, specular=0.15, roughness=0.6),
         lightposition=dict(x=1000, y=2000, z=3000),
     )])
+
+    fig.update_layout(
+        width=1200,
+        height=800,
+        scene=dict(aspectmode="data"),
+        title=title,
+        margin=dict(l=0, r=0, t=40, b=0)
+    )
 
     # aqui que muda, a gente vai usar essa função do streamlit pra gráficos plotly
     st.plotly_chart(fig, width="stretch")
