@@ -66,10 +66,8 @@ HX Modeler offers two primary functions:
   '''
             )
 
-
-
 path2 = os.path.dirname(__file__)
-my_file2 = path2+'/images/Thumbs MecHub.png'
+my_file2 = path2+'/images/Thumbs Mechub.png'
 img2 = Image.open(my_file2)
 
 st.image(img2)
