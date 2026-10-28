@@ -316,7 +316,7 @@ def _set_size_fields(cfg, fields, y1, min_gap):
         f.setNumber(fields["te_threshold"], "DistMin", 2.0 * cfg.size_te * c)
         f.setNumber(fields["te_threshold"], "DistMax", cfg.te_refine_dist * c)
     f.setNumber(fields["wake_threshold"], "SizeMin", cfg.size_wake_line * c)
-    f.setNumber(fields["wake_threshold"], "SizeMax", cfg.size_bank * c)
+    f.setNumber(fields["wake_threshold"], "SizeMax", (cfg.size_wake_line_max or cfg.size_bank) * c)
     f.setNumber(fields["wake_threshold"], "DistMin", cfg.wake_line_dist_min * c)
     f.setNumber(fields["wake_threshold"], "DistMax", cfg.wake_line_dist_max * c)
     f.setNumber(fields["box_bank"], "VIn", cfg.size_bank * c)
@@ -329,7 +329,9 @@ def _set_size_fields(cfg, fields, y1, min_gap):
         n_layers, bl_thickness = _boundary_layer_layout(cfg, y1, min_gap)
         f.setNumber(fields["bl"], "Size", y1)
         f.setNumber(fields["bl"], "Ratio", cfg.bl_ratio)
-        f.setNumber(fields["bl"], "Thickness", bl_thickness)
+        # Folga de 1/4 da última camada: com a espessura exata (soma das camadas) o Gmsh às vezes descarta a última
+        # camada por arredondamento, e a camada de cima fica pequena demais perto dos triângulos (growth rate > 2)
+        f.setNumber(fields["bl"], "Thickness", bl_thickness + 0.25 * y1 * cfg.bl_ratio ** (n_layers - 1))
 
 
 # Domínio fluido (caixa - banco de perfis), campos de refino (Distance/Threshold nos perfis + Box no banco e na esteira),
@@ -993,6 +995,10 @@ if gerar:
         # Faixa refinada da esteira: no aerofólio, estreita (bordo de fuga fino, valores do caso validado); no
         # tubo circular/elíptico (a esteira nasce com a altura do tubo), meia-largura = raio y e tamanho do banco
         wake_line_length=2.5, size_wake_line=(0.012 if aerofolio else 0.05) * fator,
+        # Tamanho no fim da faixa da esteira (None = tamanho do banco, caso validado do aerofólio). Circular / elíptico:
+        # igual ao da esteira (caixa "bege"), senão a faixa termina num degrau de tamanho fora do banco (linhas
+        # onduladas de growth rate atrás do banco)
+        size_wake_line_max=None if aerofolio else 0.10 * fator,
         wake_line_dist_min=0.03 if aerofolio else 0.5 * h_c,
         wake_line_dist_max=0.25 if aerofolio else 0.5 * h_c + 0.25,
         # Última camada da camada-limite ~ metade do tamanho na superfície (senão a transição para os triângulos passa do
