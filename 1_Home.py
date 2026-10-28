@@ -1141,7 +1141,8 @@ def criar_header_hx(
         espessura_fitting,
         L_fitting,
         modelo_combinado,
-        length_
+        length_,
+        staggered=True
 ):
     if connectype != 'Cabeçote':
         return None
@@ -1153,6 +1154,7 @@ def criar_header_hx(
     # L_cab_b = pitch_h_ * num_cols * 1.1
     # H_cab_b = pitch_v_ * num_rows * 2.5
     # S_cab_b = espessura_offset * 1.5
+    y_centro_cab = (pitch_v_ * (num_rows - 1) * 2 + (pitch_v_ if (staggered and num_cols > 1) else 0)) / 2
 
     if offset_ is True:
         # Cria a base inferior do cabeçote com arredondamento nos cantos verticais
@@ -1161,7 +1163,7 @@ def criar_header_hx(
             .box(L_cab_b, H_cab_b, S_cab_b)
             #.edges("|Z").fillet(chord_ / 3)
             .edges("|Z").fillet(chord_/10)
-        ).translate((pitch_h_ * (num_cols - 1) / 2, pitch_v_ * num_rows - espessura_h_, S_cab_b / 2))
+        ).translate((pitch_h_ * (num_cols - 1) / 2, y_centro_cab, -L_header / 2))
 
         # Subtrai os perfis (furos) do cabeçote
         for profile in sketch_ext_list:
@@ -1183,14 +1185,14 @@ def criar_header_hx(
             .box(L_cab_b, H_cab_b, S_cab_b)
             #.edges("|Z").fillet(chord_ / 3)
             .edges("|Z").fillet(chord_/10)
-        ).translate((pitch_h_ * (num_cols - 1) / 2, pitch_v_ * num_rows - espessura_h_, S_cab_b / 2))
+        ).translate((pitch_h_ * (num_cols - 1) / 2, y_centro_cab, -L_header / 2))
 
 
     # Cria o corpo superior do cabeçote
     header_body = (
         cq.Workplane("XY")
         .box(L_cab_b, H_cab_b, L_header)
-    ).translate((pitch_h_ * (num_cols - 1) / 2, pitch_v_ * num_rows - espessura_h_, -L_header / 2))
+    ).translate((pitch_h_ * (num_cols - 1) / 2, y_centro_cab, -L_header / 2))
 
     ## Se offset_ for True, aplica shell interno antes do fillet
     #header_body = header_body.faces("+Z").shell(-espessura_offset * 2).edges("|Z").fillet(chord_ / 3) if offset_ else header_body.edges("|Z").fillet(chord_ / 3)
@@ -1207,7 +1209,7 @@ def criar_header_hx(
     header_body2 = (
         cq.Workplane("XY")
         .box(L_cab_b, H_cab_b, L_header)
-    ).translate((pitch_h_ * (num_cols - 1) / 2, pitch_v_ * num_rows - espessura_h_, L_header / 2))
+    ).translate((pitch_h_ * (num_cols - 1) / 2, y_centro_cab, -L_header / 2))
 
     ## Aplica shell se necessário
     #header_body2 = header_body2.faces("-Z").shell(-espessura_offset * 2).edges("|Z").fillet(chord_ / 3) if offset_ else header_body2.edges("|Z").fillet(chord_ / 3)
@@ -2068,7 +2070,8 @@ if st.session_state.extrude_button:
                             espessura_fitting,
                             L_fitting,
                             modelo_combinado,
-                            length_
+                            length_,
+                            staggered
                         )
                     except Exception as e:
                         raise RuntimeError(f"Headers failed: {e}. The header length must be larger than the fitting "
