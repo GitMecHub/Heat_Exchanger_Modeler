@@ -4,6 +4,11 @@ https://hxmodeler.streamlit.app/
 
 Heat Exchanger Modeler is a simple application designed to help engineers, researchers, and students build 3D CAD models of tube bank heat exchangers with airfoil or circular/elliptical tubes, and to generate 2D CFD meshes of the tube bank.
 
+The airfoil-tube heat exchanger behind this app was additively manufactured and tested in practice. Its thermal–hydraulic performance is published in: https://authors.elsevier.com/c/1n~py4r6KvNJg9
+        
+        *Thermal–hydraulic performance of an additively manufactured finless heat exchanger employing airfoil-shaped tubes*  
+        J. I. M. Rufino, G. B. Ribeiro · Applied Thermal Engineering, vol. 309, 2026
+
 ## How it Works:
 
 HX Modeler offers two primary functions:
