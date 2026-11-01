@@ -40,7 +40,8 @@ with st.container(border=True):
         *Thermal–hydraulic performance of an additively manufactured finless heat exchanger employing airfoil-shaped tubes*  
         J. I. M. Rufino, G. B. Ribeiro · Applied Thermal Engineering, vol. 309, 2026
         ''')
-    st.link_button("Read the article", "https://doi.org/10.1016/j.applthermaleng.2026.133608")
+    st.link_button("Read the article", "authors.elsevier.com/c/1n~py4r6KvNJg9")
+    # st.link_button("Read the article", "https://doi.org/10.1016/j.applthermaleng.2026.133608")
 
 st.markdown('''
 ## About Heat Exchanger Modeler:
